@@ -20,11 +20,6 @@ namespace OrgManager_API.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
-
-            //var emps = empRepo.GetAll();
-            //return Ok(emps);
-
-
             var employees = empRepo.GetAllWithDepartments(); // Ensure this includes department info
             var employeeDtos = employees.Select(emp => new EmployeeWithDepartmentDto
             {

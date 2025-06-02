@@ -1,12 +1,17 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OrgManager_API.Interfaces;
 using OrgManager_API.Model;
 using OrgManager_API.Reposatories;
 using OrgManager_API.Reposatorties;
+using Microsoft.OpenApi.Models;
 
 namespace OrgManager_API
 {
-    public class Program
+    public class Programs
     {
         public static void Main(string[] args)
         {
@@ -24,6 +29,73 @@ namespace OrgManager_API
             builder.Services.AddScoped<IEmployeeReposatory, EmployeeReposatory>();
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
 
+            builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 4; // Minimum length
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+                options.Password.RequiredUniqueChars = 0;
+            })
+                .AddEntityFrameworkStores<ApplicationDbContext>();
+
+
+
+            // Token Configuration
+
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    //ValidateIssuerSigningKey = true,
+                    ValidIssuer = builder.Configuration["JWT:Issuer"],
+                    ValidAudience = builder.Configuration["JWT:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]))
+                };
+            });
+
+            // Add Swagger Authorize Button
+
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "OrgManager API", Version = "v1" });
+
+                // Add JWT Authentication
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter 'Bearer' [space] and then your valid JWT token.\n\nExample: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\""
+                });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        new string[] {}
+                    }
+                });
+            });
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -33,7 +105,7 @@ namespace OrgManager_API
                 app.UseSwaggerUI();
             }
 
-
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();
