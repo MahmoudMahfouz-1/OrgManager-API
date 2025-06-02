@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using OrgManager_API.DTO;
 using OrgManager_API.Model;
+using OrgManager_API.Utils;
 
 namespace OrgManager_API.Controllers
 {
@@ -58,7 +59,10 @@ namespace OrgManager_API.Controllers
 
             if (result.Succeeded)
             {
-                return Ok("Account created successfully");
+                var mytoken = GenerateToken.GenerateNewToken(user, 1, Config);
+                var tokenString = new JwtSecurityTokenHandler().WriteToken(mytoken);
+
+                return Ok(new { user, token = tokenString, validTo = mytoken.ValidTo });
             }
 
             // Add identity errors to ModelState
@@ -73,40 +77,28 @@ namespace OrgManager_API.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> Login(LoginUserDto userDto)
         {
-            if (ModelState.IsValid && userDto != null)
+            if (userDto == null || !ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var user = await userManager.FindByNameAsync(userDto.UserName);
+            if (user == null)
+                return Unauthorized(new { message = "Invalid username or password." });
+
+            var passwordValid = await userManager.CheckPasswordAsync(user, userDto.Password);
+            if (!passwordValid)
+                return Unauthorized(new { message = "Invalid username or password." });
+
+            var token = GenerateToken.GenerateNewToken(user, 1, Config);
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+            // Return only safe user info
+            return Ok(new
             {
-                ApplicationUser user = await userManager.FindByNameAsync(userDto.UserName);
-                if (user != null)
-                {
-                    bool found = await userManager.CheckPasswordAsync(user, userDto.Password);
-                    if (found)
-                    {
-                        // Generate the JWT Token
-                        var claims = new List<Claim>
-                        {
-                            new Claim(ClaimTypes.Name, user.UserName),
-                            new Claim(ClaimTypes.NameIdentifier, user.Id)
-                            // Add more claims if needed
-                        };
-
-                        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Config["JWT:Key"]));
-                        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                        var mytoken = new JwtSecurityToken(
-                            issuer: Config["JWT:Issuer"],
-                            audience: Config["JWT:Audience"],
-                            claims: claims,
-                            expires: DateTime.Now.AddHours(1),
-                            signingCredentials: creds
-                        );
-
-                        var tokenString = new JwtSecurityTokenHandler().WriteToken(mytoken);
-
-                        return Ok(new { user, token = tokenString, validTo = mytoken.ValidTo });
-                    }
-                }
-            }
-            return Unauthorized();
+                user = new { user.Id, user.UserName, user.Email },
+                token = tokenString,
+                validTo = token.ValidTo
+            });
         }
     }
 }
+

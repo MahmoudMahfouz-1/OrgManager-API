@@ -43,7 +43,6 @@ namespace OrgManager_API
 
 
             // Token Configuration
-
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
