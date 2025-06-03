@@ -17,13 +17,15 @@ namespace OrgManager_API.Controllers
     public class AccountController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly RoleManager<IdentityRole> roleManager;
 
         public IConfiguration Config { get; }
 
-        public AccountController(UserManager<ApplicationUser> userManager, IConfiguration config)
+        public AccountController(UserManager<ApplicationUser> userManager, IConfiguration config, RoleManager<IdentityRole> roleManager)
         {
             this.userManager = userManager;
             Config = config;
+            this.roleManager = roleManager;
         }
         [HttpPost("Register")]
         public async Task<IActionResult> Register(RegisterUserDto userDto)
@@ -55,11 +57,13 @@ namespace OrgManager_API.Controllers
                 // Add other properties if needed
             };
 
+
             var result = await userManager.CreateAsync(user, userDto.Password);
 
             if (result.Succeeded)
             {
-                var mytoken = GenerateToken.GenerateNewToken(user, 1, Config);
+                await userManager.AddToRoleAsync(user, "User");
+                var mytoken = await GenerateToken.GenerateNewToken(user, 1, Config, userManager);
                 var tokenString = new JwtSecurityTokenHandler().WriteToken(mytoken);
 
                 return Ok(new { user, token = tokenString, validTo = mytoken.ValidTo });
@@ -88,7 +92,7 @@ namespace OrgManager_API.Controllers
             if (!passwordValid)
                 return Unauthorized(new { message = "Invalid username or password." });
 
-            var token = GenerateToken.GenerateNewToken(user, 1, Config);
+            var token = await GenerateToken.GenerateNewToken(user, 1, Config, userManager);
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
             // Return only safe user info
@@ -98,6 +102,22 @@ namespace OrgManager_API.Controllers
                 token = tokenString,
                 validTo = token.ValidTo
             });
+        }
+
+        [HttpPost("AssignRole")]
+        public async Task<IActionResult> AssignRole(string id, string role)
+        {
+            var user = await userManager.FindByIdAsync(id);
+            if (user == null) return NotFound("User not found");
+
+            var roleExists = await roleManager.RoleExistsAsync(role);
+            if (!roleExists)
+                return BadRequest($"Role '{role}' does not exist.");
+
+            var result = await userManager.AddToRoleAsync(user, role);
+            if (!result.Succeeded) return BadRequest(result.Errors);
+
+            return Ok("Role assigned successfully");
         }
     }
 }

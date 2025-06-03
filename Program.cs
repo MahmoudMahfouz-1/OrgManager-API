@@ -8,6 +8,7 @@ using OrgManager_API.Model;
 using OrgManager_API.Reposatories;
 using OrgManager_API.Reposatorties;
 using Microsoft.OpenApi.Models;
+using System.Threading.Tasks;
 
 namespace OrgManager_API
 {
@@ -103,6 +104,11 @@ namespace OrgManager_API
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            // Call the SeedRolesFunction 
+            //using (var scope = app.Services.CreateScope())
+            //{
+            //    await SeedRolesAsync(scope.ServiceProvider);
+            //}
 
             app.UseAuthentication();
             app.UseAuthorization();
@@ -111,5 +117,19 @@ namespace OrgManager_API
 
             app.Run();
         }
+
+        //private static async Task SeedRolesAsync(IServiceProvider serviceProvider)
+        //{
+        //    var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        //    string[] roleNames = { "Admin", "User" };
+
+        //    foreach (var roleName in roleNames)
+        //    {
+        //        if (!await roleManager.RoleExistsAsync(roleName))
+        //        {
+        //            await roleManager.CreateAsync(new IdentityRole(roleName));
+        //        }
+        //    }
+        //}
     }
 }

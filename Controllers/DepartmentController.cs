@@ -56,6 +56,7 @@ namespace OrgManager_API.Controllers
             return Ok(deptDto);
 
         }
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public IActionResult CreateDepartment([FromBody] DepartmentCreateDto newDeptDto)
         {
